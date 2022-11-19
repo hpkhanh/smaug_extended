@@ -7,6 +7,7 @@
 #include "core/globals.h"
 #include "core/scheduler.h"
 #include "core/network_builder.h"
+#include "core/layer_config.h"
 #include "operators/common.h"
 #include "utility/debug_stream.h"
 #include "utility/utils.h"
@@ -15,10 +16,12 @@
 namespace po = boost::program_options;
 
 using namespace smaug;
+using namespace std;
 
 int main(int argc, char* argv[]) {
     std::string modelTopo;
     std::string modelParams;
+    std::string layer_config_file;
     int debugLevel = -1;
     std::string lastOutputFile;
     bool dumpGraph = false;
@@ -69,7 +72,11 @@ int main(int argc, char* argv[]) {
          "Number of threads in the thread pool.")
         ("use-systolic-array",
          po::value(&useSystolicArrayWhenAvailable)->implicit_value(true),
-         "If the backend contains a systolic array, use it whenever possible.");
+         "If the backend contains a systolic array, use it whenever possible.")
+        ("layer-config", 
+         po::value<string>(&layer_config_file)->default_value("layers.cfg"),
+         "Configuration file for specifying hardware backends for different layers.")
+        ;
     // clang-format on
 
     po::options_description hidden;
@@ -146,6 +153,10 @@ int main(int argc, char* argv[]) {
         std::cout << "Using a thread pool, size: " << numThreads << ".\n";
         threadPool = new ThreadPool(numThreads);
     }
+
+    Layer_Configurator * layer_config = new(Layer_Configurator);
+    layer_config->parse_config_file(layer_config_file);
+    layer_config->print_configs();
 
     Workspace* workspace = new Workspace();
     Network* network =

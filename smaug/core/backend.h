@@ -10,6 +10,7 @@
 // a particular backend.
 #define REFERENCE 0
 #define SMVBACKEND 1
+#define CPU_BACKEND 2
 
 /**
  * The smaug namespace is the parent namespace of all C++ code in SMAUG.
@@ -19,14 +20,16 @@ namespace smaug {
 /**
  * The list of all hardware backends in the system.
  */
-enum BackendName {
+typedef enum BackendName {
     /** Reference backend. */
     Reference = REFERENCE,
     /** SMV backend. */
     Smv = SMVBACKEND,
+    /** CPU backend. */
+    Cpu = CPU_BACKEND,
     /** Invalid backend. */
     UnknownBackend,
-};
+} BackEndName_t;
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 class Workspace;
