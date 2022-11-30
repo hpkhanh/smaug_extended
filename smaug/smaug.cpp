@@ -7,7 +7,7 @@
 #include "core/globals.h"
 #include "core/scheduler.h"
 #include "core/network_builder.h"
-#include "core/layer_config.h"
+#include "core/network_config.h"
 #include "operators/common.h"
 #include "utility/debug_stream.h"
 #include "utility/utils.h"
@@ -21,7 +21,7 @@ using namespace std;
 int main(int argc, char* argv[]) {
     std::string modelTopo;
     std::string modelParams;
-    std::string layer_config_file;
+    std::string network_config_file;
     int debugLevel = -1;
     std::string lastOutputFile;
     bool dumpGraph = false;
@@ -73,8 +73,8 @@ int main(int argc, char* argv[]) {
         ("use-systolic-array",
          po::value(&useSystolicArrayWhenAvailable)->implicit_value(true),
          "If the backend contains a systolic array, use it whenever possible.")
-        ("layer-config", 
-         po::value<string>(&layer_config_file)->default_value("layers.cfg"),
+        ("network-config", 
+         po::value<string>(&network_config_file)->default_value("layers.cfg"),
          "Configuration file for specifying hardware backends for different layers.")
         ;
     // clang-format on
@@ -154,13 +154,15 @@ int main(int argc, char* argv[]) {
         threadPool = new ThreadPool(numThreads);
     }
 
-    Layer_Configurator * layer_config = new(Layer_Configurator);
-    layer_config->parse_config_file(layer_config_file);
-    layer_config->print_configs();
+    NetworkConfigurator * network_config = new(NetworkConfigurator);
+    network_config->parseConfigFile(network_config_file);
+    network_config->printConfigs();
 
     Workspace* workspace = new Workspace();
+    // Network* network =
+    //         buildNetwork(modelTopo, modelParams, sampling, workspace);
     Network* network =
-            buildNetwork(modelTopo, modelParams, sampling, workspace);
+            buildNetwork(modelTopo, modelParams, network_config, sampling, workspace);
     ReferenceBackend::initGlobals();
     SmvBackend::initGlobals();
 

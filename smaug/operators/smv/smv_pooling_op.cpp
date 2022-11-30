@@ -69,17 +69,36 @@ void SmvPoolingOp::runNHWC(TiledTensor& inputs, TiledTensor& outputs) {
                     // tile. Otherwise, we start from the last place we left off
                     // from.
                     int ofmapStart = (iC == oC) ? 0 : ofmapOffset;
-
-                    invokeKernel(
-                            smv::kPoolingHw,
-                            opType == MaxPooling ? smv_maxpooling_nhwc_vec_fxp
-                                                 : smv_avgpooling_nhwc_vec_fxp,
-                            inputTile->data<float16>(),
-                            outputTile->data<float16>(), smv::spad0, smv::spad1,
-                            inputDims, outputDims, inputShape.getPadding(3),
-                            outputShape.getPadding(3), getPoolingSize().first,
-                            getPoolingSize().second, getPoolingStride().first,
-                            getPoolingStride().second, ofmapStart, &sampling);
+                    if (backEnd == Smv) {
+                        invokeKernel(
+                                smv::kPoolingHw,
+                                opType == MaxPooling ? smv_maxpooling_nhwc_vec_fxp
+                                                    : smv_avgpooling_nhwc_vec_fxp,
+                                inputTile->data<float16>(),
+                                outputTile->data<float16>(), smv::spad0, smv::spad1,
+                                inputDims, outputDims, inputShape.getPadding(3),
+                                outputShape.getPadding(3), getPoolingSize().first,
+                                getPoolingSize().second, getPoolingStride().first,
+                                getPoolingStride().second, ofmapStart, &sampling);
+                    } else if (backEnd = Cpu) {
+                        if (opType == opType == MaxPooling) {
+                            smv_maxpooling_nhwc_vec_fxp(
+                                inputTile->data<float16>(),
+                                outputTile->data<float16>(), smv::spad0, smv::spad1,
+                                inputDims, outputDims, inputShape.getPadding(3),
+                                outputShape.getPadding(3), getPoolingSize().first,
+                                getPoolingSize().second, getPoolingStride().first,
+                                getPoolingStride().second, ofmapStart, &sampling);
+                        } else {
+                            smv_avgpooling_nhwc_vec_fxp(
+                                inputTile->data<float16>(),
+                                outputTile->data<float16>(), smv::spad0, smv::spad1,
+                                inputDims, outputDims, inputShape.getPadding(3),
+                                outputShape.getPadding(3), getPoolingSize().first,
+                                getPoolingSize().second, getPoolingStride().first,
+                                getPoolingStride().second, ofmapStart, &sampling);
+                        }
+                    }
 
                     ofmapOffset += inputTile->getShape()[3];
                     if (inputChanTiles == outputChanTiles) {
@@ -121,6 +140,7 @@ void SmvPoolingOp::run() {
     }
 
     runNHWC(tiledTensors[0], tiledTensors[1]);
+    dout(1) << "Running on backend: " << backEnd << "\n"; 
 
     {
         auto stats = gem5::ScopedStats(

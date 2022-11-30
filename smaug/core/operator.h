@@ -6,11 +6,13 @@
 #include <map>
 #include <boost/format.hpp>
 
+#include "backend.h"
 #include "smaug/core/typedefs.h"
 #include "smaug/core/tensor.h"
 #include "smaug/core/tensor_utils.h"
 #include "smaug/core/types.pb.h"
 #include "smaug/operators/common.h"
+#include "smaug/core/network_config.h"
 
 #define REGISTER_SPECIAL_OP(Operator, Backend)                                 \
     template <>                                                                \
@@ -104,6 +106,10 @@ class Operator {
     const std::string& getName() const { return name; }
     Vertex getVertex() const { return vertex; }
     void setVertex(Vertex v) { vertex = v; }
+    void setBackEnd(BackEndName_t be) { backEnd = be; }
+    void setNumCores(int cores) { numCores = cores; }
+    BackEndName_t getBackEnd() { return backEnd; }
+    int getNumCores() { return numCores; }
     OpType getOpType() const { return opType; }
     Workspace* getWorkspace() { return workspace; }
 
@@ -142,6 +148,8 @@ class Operator {
 
     std::string name;
     OpType opType;
+    BackEndName_t backEnd;
+    int numCores; 
     /** The BGL Vertex corresponding to this Operator. */
     Vertex vertex;
     Workspace* workspace;

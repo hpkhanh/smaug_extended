@@ -69,13 +69,24 @@ void SmvBatchNormOp::runNA(TiledTensor& inputs,
             // Send the results back to host memory when we finish the weights.
             bool sendOutputs = iC == wC || wC == weightActTiles - 1;
 
-            invokeKernel(smv::kBatchNormHw, smv_batch_norm_post_fc_nc_vec_fxp,
-                         inputTile->data<float16>(),
-                         weightsTile->data<float16>(),
-                         outputTile->data<float16>(), smv::spad0, smv::spad1,
-                         smv::spad2, inputDims, weightsShape[1],
-                         inputShape.getPadding(1), actStart, sendOutputs,
-                         actInfo.function, actInfo.params);
+            if (backEnd == Smv){
+                invokeKernel(smv::kBatchNormHw, smv_batch_norm_post_fc_nc_vec_fxp,
+                            inputTile->data<float16>(),
+                            weightsTile->data<float16>(),
+                            outputTile->data<float16>(), smv::spad0, smv::spad1,
+                            smv::spad2, inputDims, weightsShape[1],
+                            inputShape.getPadding(1), actStart, sendOutputs,
+                            actInfo.function, actInfo.params);
+            } else if (backEnd == Cpu){
+                smv_batch_norm_post_fc_nc_vec_fxp(
+                            inputTile->data<float16>(),
+                            weightsTile->data<float16>(),
+                            outputTile->data<float16>(), smv::spad0, smv::spad1,
+                            smv::spad2, inputDims, weightsShape[1],
+                            inputShape.getPadding(1), actStart, sendOutputs,
+                            actInfo.function, actInfo.params);
+            }
+
 
             actOffset += weightsTile->getShape()[1];
             if (inputActTiles == weightActTiles) {
@@ -147,8 +158,8 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
                             outputShape.storageSize() * sizeof(float16));
                     int inputDims[4] = { inputShape[0], inputShape[1],
                                          inputShape[2], inputShape[3] };
-
-                    std::unique_ptr<volatile int> finishFlag =
+                    if (backEnd == Smv) {
+                        std::unique_ptr<volatile int> finishFlag =
                             invokeKernelNoBlock(
                                     currAccelIdx,
                                     smv::kBatchNormHw + currAccelIdx,
@@ -161,8 +172,25 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
                                     weightShape.getPadding(1), ifmapOffset,
                                     actInfo.function, actInfo.params,
                                     &sampling);
-                    accelPool.addFinishFlag(
-                            currAccelIdx, std::move(finishFlag));
+                        accelPool.addFinishFlag(
+                                currAccelIdx, std::move(finishFlag));
+                    } else if (backEnd == Cpu) {
+                            smv_batch_norm_post_conv_nhwc_vec_fxp(
+                                    inputTile->data<float16>(),
+                                    weightTile->data<float16>(),
+                                    outputTile->data<float16>(), smv::spad0,
+                                    smv::spad1, smv::spad2, inputDims,
+                                    weightShape[1], inputShape.getPadding(3),
+                                    weightShape.getPadding(1), ifmapOffset,
+                                    actInfo.function, actInfo.params,
+                                    &sampling);
+                        accelPool.addFinishFlag(
+                                currAccelIdx, std::move(nullptr));
+                    } else {
+                        accelPool.addFinishFlag(
+                                currAccelIdx, std::move(nullptr));
+                    }
+
                     ifmapOffset += inputShape[3];
                     currAccelIdx =
                             accelPool.getNextAvailableAccelerator(currAccelIdx);

@@ -195,22 +195,42 @@ void SmvConvolutionOp::runNHWC(TiledTensor& inputs,
                                     accumulate, readInputs, readWeights,
                                     sendResults, &actInfo);
                         } else {
-                            // Otherwise invoke the DLA-like kernel.
-                            finishFlag = invokeKernelNoBlock(
-                                    currAccelIdx, accelId + currAccelIdx,
-                                    smv_conv3d_nhwc_vec_fxp,
-                                    inputTile->data<float16>(),
-                                    weightsTile->data<float16>(),
-                                    outputTile->data<float16>(), smv::spad0,
-                                    smv::spad1, smv::spad2, inputDims,
-                                    weightsDims, outputDims,
-                                    inputShape.getPadding(3),
-                                    weightsShape.getPadding(3),
-                                    outputShape.getPadding(3), inputHaloPad,
-                                    getRowStride(), getColStride(), ifmapStart,
-                                    kernStart, accumulate, readInputs,
-                                    readWeights, sendResults, actInfo.function,
-                                    actInfo.params, &sampling);
+                            if (backEnd == Smv){
+                                // Otherwise invoke the DLA-like kernel.
+                                finishFlag = invokeKernelNoBlock(
+                                        currAccelIdx, accelId + currAccelIdx,
+                                        smv_conv3d_nhwc_vec_fxp,
+                                        inputTile->data<float16>(),
+                                        weightsTile->data<float16>(),
+                                        outputTile->data<float16>(), smv::spad0,
+                                        smv::spad1, smv::spad2, inputDims,
+                                        weightsDims, outputDims,
+                                        inputShape.getPadding(3),
+                                        weightsShape.getPadding(3),
+                                        outputShape.getPadding(3), inputHaloPad,
+                                        getRowStride(), getColStride(), ifmapStart,
+                                        kernStart, accumulate, readInputs,
+                                        readWeights, sendResults, actInfo.function,
+                                        actInfo.params, &sampling);
+                            } else if (backEnd == Cpu){
+                                smv_conv3d_nhwc_vec_fxp(
+                                        inputTile->data<float16>(),
+                                        weightsTile->data<float16>(),
+                                        outputTile->data<float16>(), smv::spad0,
+                                        smv::spad1, smv::spad2, inputDims,
+                                        weightsDims, outputDims,
+                                        inputShape.getPadding(3),
+                                        weightsShape.getPadding(3),
+                                        outputShape.getPadding(3), inputHaloPad,
+                                        getRowStride(), getColStride(), ifmapStart,
+                                        kernStart, accumulate, readInputs,
+                                        readWeights, sendResults, actInfo.function,
+                                        actInfo.params, &sampling);
+                                finishFlag = nullptr;
+                            } else {
+                                finishFlag = nullptr;
+                            }
+
                         }
                         accelPool.addFinishFlag(
                                 currAccelIdx, std::move(finishFlag));
@@ -326,6 +346,7 @@ void SmvConvolutionOp::run() {
     }
 
     runNHWC(tiledTensors[0], tiledTensors[1], tiledTensors[2]);
+    dout(1) << "Running on backend: " << backEnd << "\n"; 
 
     {
         auto stats = gem5::ScopedStats(

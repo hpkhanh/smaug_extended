@@ -114,18 +114,33 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
                                    (W == weightNeuronTiles - 1) &&
                                    (wC == weightActTiles - 1);
 
-                std::unique_ptr<volatile int> finishFlag = invokeKernelNoBlock(
-                        currAccelIdx, smv::kInnerProductHw + currAccelIdx,
-                        smv_matrix_multiply_transpose_nc_vec_fxp,
-                        inputTile->data<float16>(),
-                        weightsTile->data<float16>(),
-                        outputTile->data<float16>(), smv::spad0, smv::spad1,
-                        smv::spad2, inputDims, weightsDims, outputDims,
-                        inputShape.getPadding(1), weightsShape.getPadding(1),
-                        outputShape.getPadding(1), actStart, finishedNeurons,
-                        accumulate, readInputs, sendOutputs, actInfo.function,
-                        actInfo.params, &sampling);
-                accelPool.addFinishFlag(currAccelIdx, std::move(finishFlag));
+                if (backEnd == Smv){
+                    std::unique_ptr<volatile int> finishFlag = invokeKernelNoBlock(
+                            currAccelIdx, smv::kInnerProductHw + currAccelIdx,
+                            smv_matrix_multiply_transpose_nc_vec_fxp,
+                            inputTile->data<float16>(),
+                            weightsTile->data<float16>(),
+                            outputTile->data<float16>(), smv::spad0, smv::spad1,
+                            smv::spad2, inputDims, weightsDims, outputDims,
+                            inputShape.getPadding(1), weightsShape.getPadding(1),
+                            outputShape.getPadding(1), actStart, finishedNeurons,
+                            accumulate, readInputs, sendOutputs, actInfo.function,
+                            actInfo.params, &sampling);
+                    accelPool.addFinishFlag(currAccelIdx, std::move(finishFlag));
+                } else if (backEnd == Cpu){
+                    smv_matrix_multiply_transpose_nc_vec_fxp(
+                            inputTile->data<float16>(),
+                            weightsTile->data<float16>(),
+                            outputTile->data<float16>(), smv::spad0, smv::spad1,
+                            smv::spad2, inputDims, weightsDims, outputDims,
+                            inputShape.getPadding(1), weightsShape.getPadding(1),
+                            outputShape.getPadding(1), actStart, finishedNeurons,
+                            accumulate, readInputs, sendOutputs, actInfo.function,
+                            actInfo.params, &sampling);
+                    accelPool.addFinishFlag(currAccelIdx, std::move(nullptr));
+                } else {
+                    accelPool.addFinishFlag(currAccelIdx, std::move(nullptr));
+                }                
 
                 actOffset += weightsTile->getShape()[1];
                 if (inputActTiles == weightActTiles) {
@@ -164,7 +179,8 @@ void SmvInnerProductOp::run() {
     assert(inputsShape.getLayout() == DataLayout::NC);
     assert(weightsShape.getLayout() == DataLayout::NC);
     assert(outputsShape.getLayout() == DataLayout::NC);
-    dout(2) << *weights << "\n";
+    dout(1) << "Inputs for this Op: " << *inputs << "\n";
+    dout(2) << "Weights for this Op: " << *weights << "\n";
 
     {
         auto stats = gem5::ScopedStats(
@@ -174,12 +190,14 @@ void SmvInnerProductOp::run() {
     }
 
     runNWA(tiledTensors[0], tiledTensors[1], tiledTensors[2]);
+    dout(1) << "Running on backend: " << backEnd << "\n"; 
 
     {
         auto stats = gem5::ScopedStats(
                 stats::kTensorFinalStart, stats::kTensorFinalEnd);
         tiledTensors[2].untile();
     }
+    dout(1) << "Outputs for this Op: " << *outputs << "\n";
 }
 
 }  // namespace smaug

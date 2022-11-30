@@ -44,10 +44,17 @@ void SmvSoftmaxOp::run() {
         mapArrayToAccel(smv::kEltwiseOpHw, "host_results",
                         outputTile->data<float16>(),
                         outputShape.storageSize() * sizeof(float16));
-        invokeKernel(smv::kEltwiseOpHw, smv_softmax_nc_vec_fxp,
-                     inputTile->data<float16>(), outputTile->data<float16>(),
-                     smv::spad0, smv::spad1, inputShape[0], inputShape[1],
-                     inputShape.getPadding(1));
+        if (backEnd == Smv) {
+                invokeKernel(smv::kEltwiseOpHw, smv_softmax_nc_vec_fxp,
+                        inputTile->data<float16>(), outputTile->data<float16>(),
+                        smv::spad0, smv::spad1, inputShape[0], inputShape[1],
+                        inputShape.getPadding(1));
+        } else if (backEnd == Cpu) {
+                smv_softmax_nc_vec_fxp(
+                        inputTile->data<float16>(), outputTile->data<float16>(),
+                        smv::spad0, smv::spad1, inputShape[0], inputShape[1],
+                        inputShape.getPadding(1));
+        }
     }
     {
         auto stats = gem5::ScopedStats(

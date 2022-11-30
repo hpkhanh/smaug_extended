@@ -234,6 +234,12 @@ class Graph:
             "alignment(%d)" % t.shape.alignment)
       print("-----------------------------------------------------------------")
 
+  def print_nodes(self, filepath):
+    with open(filepath, "w") as file:
+      for node in self._nodes:
+        if (node.op != types_pb2.Data) and (node.op != types_pb2.Reorder):
+          file.write("%s  %s\n" % (node.name, node.op))
+
 def get_node_proto(graph_proto, node_name):
   """Get a `NodeProto` from `GraphProto` by node name.
 

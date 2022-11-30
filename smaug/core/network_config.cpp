@@ -1,4 +1,4 @@
-#include "layer_config.h"
+#include "network_config.h"
 #include "globals.h"
 
 #include <boost/spirit/include/qi.hpp>
@@ -15,15 +15,15 @@ namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 
 BOOST_FUSION_ADAPT_STRUCT(
-    Layer_Config_Raw,
-    (string, layer_name)
-    (int, op_type)
+    LayerConfigRaw,
+    (string, layerName)
+    (int, opType)
     (string, backend)
-    (int, no_cores)
+    (int, numCores)
 )
 
 template <typename Iterator>
-struct layer_cfg_parser : qi::grammar<Iterator, Layer_Config_Raw()>
+struct layer_cfg_parser : qi::grammar<Iterator, LayerConfigRaw()>
 {
     layer_cfg_parser() : layer_cfg_parser::base_type(start)
     {
@@ -43,14 +43,14 @@ struct layer_cfg_parser : qi::grammar<Iterator, Layer_Config_Raw()>
     }
 
     qi::rule<Iterator, std::string()> basic_string;
-    qi::rule<Iterator, Layer_Config_Raw()> start;
+    qi::rule<Iterator, LayerConfigRaw()> start;
 };
 
-Layer_Configurator::Layer_Configurator(){
+NetworkConfigurator::NetworkConfigurator(){
 
 }
 
-OpType Layer_Configurator::check_optype(int type){
+OpType NetworkConfigurator::checkOpType(int type){
     OpType out_type;
     if ((type > OpType_MAX) || (type < OpType_MIN)){
         out_type = OpType_MIN;
@@ -62,13 +62,13 @@ OpType Layer_Configurator::check_optype(int type){
     return out_type;
 }
 
-BackEndName_t Layer_Configurator::check_backend(string backend)
+BackEndName_t NetworkConfigurator::checkBackend(string backend)
 {
     BackEndName_t backend_name;
-    if (backend == "Ref"){
+    if (backend == "REF"){
         backend_name = Reference;
     }
-    else if (backend == "Smv"){
+    else if (backend == "SMV"){
         backend_name = Smv;
     }
     else{
@@ -78,7 +78,7 @@ BackEndName_t Layer_Configurator::check_backend(string backend)
     return backend_name;
 }
 
-void Layer_Configurator::parse_config_file(string config_file_path){
+void NetworkConfigurator::parseConfigFile(string config_file_path){
     ifstream fin;
 
     using boost::spirit::ascii::space;
@@ -92,35 +92,52 @@ void Layer_Configurator::parse_config_file(string config_file_path){
 
     while (getline(fin, str))
     {
-        Layer_Config_Raw l_conf_raw;
-        Layer_Config l_conf;
+        LayerConfigRaw l_conf_raw;
+        LayerConfig l_conf;
         std::string::const_iterator iter = str.begin();
         std::string::const_iterator end = str.end();
         bool r = parse(iter, end, g, l_conf_raw);
 
         if (r && iter == end)
         {
-            l_conf.layer_name = l_conf_raw.layer_name;
-            l_conf.op_type = check_optype(l_conf_raw.op_type);
-            l_conf.backend = check_backend(l_conf_raw.backend);
-            if ((l_conf_raw.no_cores <= 0) || (l_conf_raw.no_cores > maxNumAccelerators)){
-                l_conf.no_cores = 1;
+            l_conf.layerName = l_conf_raw.layerName;
+            l_conf.opType = checkOpType(l_conf_raw.opType);
+            l_conf.backend = checkBackend(l_conf_raw.backend);
+            if ((l_conf_raw.numCores <= 0) || (l_conf_raw.numCores > maxNumAccelerators)){
+                l_conf.numCores = 1;
             }
             else {
-                l_conf.no_cores = (uint)l_conf_raw.no_cores;
+                l_conf.numCores = (uint)l_conf_raw.numCores;
             }
-            layer_confs.push_back(l_conf);
+            _networkConfs.push_back(l_conf);
         }
     }
 
     fin.close();
 }
 
-void Layer_Configurator::print_configs() {
-    vector<Layer_Config>::iterator it;
+void NetworkConfigurator::printConfigs() {
+    vector<LayerConfig>::iterator it;
+    cout << "--------------------\n";
     cout << "Layer Config Lists:\n";
-    for (it = layer_confs.begin(); it != layer_confs.end(); it++){
-        cout << it->layer_name << " " << it->op_type << " " << it->backend << " " << it->no_cores << endl;
+    for (it = _networkConfs.begin(); it != _networkConfs.end(); it++){
+        cout << it->layerName << " " << it->opType << " " << it->backend << " " << it->numCores << endl;
     }
     cout << "--------------------\n\n";
+}
+
+LayerConfig * NetworkConfigurator::getLayerConfig(std::string layerName){
+    LayerConfig * ptr = nullptr;
+    vector<LayerConfig>::iterator it;
+    for (it = _networkConfs.begin(); it != _networkConfs.end(); it++){
+        if (it->layerName == layerName){
+            ptr = &(*it);
+        }
+    }
+    
+    return ptr;
+}
+
+std::vector<LayerConfig> * NetworkConfigurator::getNetworkConfig(){
+    return &_networkConfs;
 }
