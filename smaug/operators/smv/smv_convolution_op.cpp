@@ -36,10 +36,10 @@ void SmvConvolutionOp::runNHWC(TiledTensor& inputs,
     int rightPad = inputPadding[3];
     unsigned accelId = useSystolicArrayWhenAvailable ? smv::kSystolicArrayHw
                                                      : smv::kConvolutionHw;
-    SmvAcceleratorPool accelPool(numAcceleratorsAvailable);
-    std::vector<int> lastReadInputTileIdx(numAcceleratorsAvailable, -1);
-    std::vector<int> lastReadWeightTileIdx(numAcceleratorsAvailable, -1);
-    for (int i = 0; i < numAcceleratorsAvailable; i++) {
+    SmvAcceleratorPool accelPool(numCores);
+    std::vector<int> lastReadInputTileIdx(numCores, -1);
+    std::vector<int> lastReadWeightTileIdx(numCores, -1);
+    for (int i = 0; i < numCores; i++) {
         setArrayMemTypeIfSimulating(
                 accelId + i, "host_inputs", getInputsMemType());
         setArrayMemTypeIfSimulating(

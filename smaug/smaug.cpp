@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     std::string samplingLevel = "no";
     sampling.num_sample_iterations = 1;
     numAcceleratorsAvailable = 1;
-    int numThreads = -1;
+    numThreads = -1;
     useSystolicArrayWhenAvailable = false;
     po::options_description options(
             "SMAUG Usage:  ./smaug model_topo.pbtxt model_params.pb [options]");

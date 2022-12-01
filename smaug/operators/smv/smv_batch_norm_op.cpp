@@ -122,7 +122,7 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
     auto outputIdx = outputs.startIndex();
     Tensor* weightTile = weights.getTileWithData(0);
     const TensorShape& weightShape = weightTile->getShape();
-    for (int i = 0; i < numAcceleratorsAvailable; i++) {
+    for (int i = 0; i < numCores; i++) {
         mapArrayToAccel(smv::kBatchNormHw + i, "host_weights",
                         weightTile->data<float16>(),
                         weightShape.storageSize() * sizeof(float16));
@@ -133,7 +133,7 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
         setArrayMemTypeIfSimulating(
                 smv::kBatchNormHw + i, "host_results", getOutputsMemType());
     }
-    SmvAcceleratorPool accelPool(numAcceleratorsAvailable);
+    SmvAcceleratorPool accelPool(numCores);
     int currAccelIdx = 0;
     for (int N = 0; N < inputNumTiles; N++) {
         for (int H = 0; H < inputRowTiles; H++) {

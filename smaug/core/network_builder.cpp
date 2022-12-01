@@ -493,10 +493,10 @@ static void createAndAddOperator(const NodeProto& node,
     }
 
     Operator* op = network->getOperator(name);
+    int max_cores = (nodeConfig->backend == Cpu) ? numThreads : numAcceleratorsAvailable;
+    int num_cores = (nodeConfig->numCores > max_cores) ? max_cores : nodeConfig->numCores;
     op->setBackEnd(nodeConfig->backend);
-    // dout(0) << "Node backend:" << nodeConfig->backend << "\n";
-    // dout(0) << "Op backend:" << op->getBackEnd() << "\n";
-    op->setNumCores(nodeConfig->numCores);
+    op->setNumCores(num_cores);
 
     // Set the sampling info for the operator if it supports sampling.
     if (op->isSamplingSupported())

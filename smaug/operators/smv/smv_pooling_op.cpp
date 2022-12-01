@@ -80,8 +80,8 @@ void SmvPoolingOp::runNHWC(TiledTensor& inputs, TiledTensor& outputs) {
                                 outputShape.getPadding(3), getPoolingSize().first,
                                 getPoolingSize().second, getPoolingStride().first,
                                 getPoolingStride().second, ofmapStart, &sampling);
-                    } else if (backEnd = Cpu) {
-                        if (opType == opType == MaxPooling) {
+                    } else if (backEnd == Cpu) {
+                        if (opType == MaxPooling) {
                             smv_maxpooling_nhwc_vec_fxp(
                                 inputTile->data<float16>(),
                                 outputTile->data<float16>(), smv::spad0, smv::spad1,

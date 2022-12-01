@@ -37,7 +37,7 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
     auto inputIdx = inputs.startIndex();
     auto weightIdx = weights.startIndex();
     auto outputIdx = outputs.startIndex();
-    for (int i = 0; i < numAcceleratorsAvailable; i++) {
+    for (int i = 0; i < numCores; i++) {
         setArrayMemTypeIfSimulating(
                 smv::kInnerProductHw + i, "host_a", getInputsMemType());
         setArrayMemTypeIfSimulating(
@@ -45,8 +45,8 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
         setArrayMemTypeIfSimulating(
                 smv::kInnerProductHw + i, "host_results", getOutputsMemType());
     }
-    SmvAcceleratorPool accelPool(numAcceleratorsAvailable);
-    std::vector<int> lastReadInputTileIdx(numAcceleratorsAvailable, -1);
+    SmvAcceleratorPool accelPool(numCores);
+    std::vector<int> lastReadInputTileIdx(numCores, -1);
     int currAccelIdx = 0;
     for (int N = 0; N < inputNumTiles; N++) {
         // Usually we are constrained by weights whereas outputs can fit in the

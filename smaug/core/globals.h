@@ -25,6 +25,11 @@ extern bool fastForwardMode;
 constexpr const int maxNumAccelerators = 8;
 
 /**
+ * The actual number of CPUs currently in use.
+ */
+extern int numThreads;
+
+/**
  * The actual number of accelerator complexes currently in use.
  */
 extern int numAcceleratorsAvailable;
