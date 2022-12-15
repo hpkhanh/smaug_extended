@@ -29,6 +29,13 @@ void SmvPoolingOp::runNHWC(TiledTensor& inputs, TiledTensor& outputs) {
     int outputChanTiles = outputs.getShape()[3];
     auto inputIdx = inputs.startIndex();
     auto outputIdx = outputs.startIndex();
+    float * a;
+    float * b;
+
+    if (backEnd == Cpu) {
+        a = (float*)smaug::malloc_aligned(memSize * 2);
+        b = (float*)smaug::malloc_aligned(memSize * 2);
+    }
     setArrayMemTypeIfSimulating(
             smv::kPoolingHw, "host_inputs", getInputsMemType());
     setArrayMemTypeIfSimulating(
@@ -84,7 +91,7 @@ void SmvPoolingOp::runNHWC(TiledTensor& inputs, TiledTensor& outputs) {
                         if (opType == MaxPooling) {
                             smv_maxpooling_nhwc_vec_fxp(
                                 inputTile->data<float16>(),
-                                outputTile->data<float16>(), smv::spad0, smv::spad1,
+                                outputTile->data<float16>(), a, b,
                                 inputDims, outputDims, inputShape.getPadding(3),
                                 outputShape.getPadding(3), getPoolingSize().first,
                                 getPoolingSize().second, getPoolingStride().first,
@@ -92,7 +99,7 @@ void SmvPoolingOp::runNHWC(TiledTensor& inputs, TiledTensor& outputs) {
                         } else {
                             smv_avgpooling_nhwc_vec_fxp(
                                 inputTile->data<float16>(),
-                                outputTile->data<float16>(), smv::spad0, smv::spad1,
+                                outputTile->data<float16>(), a, b,
                                 inputDims, outputDims, inputShape.getPadding(3),
                                 outputShape.getPadding(3), getPoolingSize().first,
                                 getPoolingSize().second, getPoolingStride().first,
@@ -116,6 +123,11 @@ void SmvPoolingOp::runNHWC(TiledTensor& inputs, TiledTensor& outputs) {
             }
         }
     }
+
+    if (backEnd == Cpu){
+        free(a);
+        free(b);
+    }    
 }
 
 void SmvPoolingOp::tile() {

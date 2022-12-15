@@ -204,10 +204,11 @@ void TilingOptimizer::enumPostConvTilingConfigs(
     assert(!fullConfigs.empty() && "No tiling configurations found!");
 }
 
-TilingConfig TilingOptimizer::computeBasicTileShapes(Tensor* inputs,
+TilingConfig TilingOptimizer::computeBasicTileShapes(int memSize,
+                                                     Tensor* inputs,
                                                      Tensor* weights,
                                                      Tensor* outputs) {
-    int maxTileSize = SmvBackend::SpadSize() / inputs->getDataTypeSize();
+    int maxTileSize = memSize / inputs->getDataTypeSize();
     // The outputs have the same shape as the inputs. No need to tile it.
     assert(inputs->getShape() == outputs->getShape());
     std::array<TilingDims, 2> strategies =
@@ -268,7 +269,7 @@ std::array<TiledTensor, 3> TilingOptimizer::doTiling(SmvBatchNormOp* op) {
             { mean, variance, gamma, beta }, 0, op->getWorkspace());
     auto outputs = op->getOutput(SmvBatchNormOp::Outputs);
     TilingConfig tileConfig =
-            TilingOptimizer::computeBasicTileShapes(inputs, weights, outputs);
+            TilingOptimizer::computeBasicTileShapes(op->getMemSize(), inputs, weights, outputs);
     TiledTensor tiledInputs =
             generateTiledTensor(inputs, tileConfig.inputs, op);
     // Copy data for the weight tiles since the data is read-only.

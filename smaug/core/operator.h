@@ -7,6 +7,7 @@
 #include <boost/format.hpp>
 
 #include "backend.h"
+#include "backend_config.h"
 #include "smaug/core/typedefs.h"
 #include "smaug/core/tensor.h"
 #include "smaug/core/tensor_utils.h"
@@ -108,8 +109,15 @@ class Operator {
     void setVertex(Vertex v) { vertex = v; }
     void setBackEnd(BackEndName_t be) { backEnd = be; }
     void setNumCores(int cores) { numCores = cores; }
+    void setMemSize(unsigned long long size) { memSize = size; }
+    void setNumPEs(int num) { numPEs = num; }
+    void setNumMaccsPerPE(int numMaccs) { numMaccsPerPE = numMaccs; }
+
     BackEndName_t getBackEnd() { return backEnd; }
     int getNumCores() { return numCores; }
+    unsigned long long getMemSize() { return memSize; }
+    int getNumPEs() { return numPEs; }
+    int getNumMaccsPerPE() { return numMaccsPerPE; }
     OpType getOpType() const { return opType; }
     Workspace* getWorkspace() { return workspace; }
 
@@ -150,6 +158,10 @@ class Operator {
     OpType opType;
     BackEndName_t backEnd;
     int numCores; 
+    unsigned long long memSize;
+    int numPEs;
+    int numMaccsPerPE;
+
     /** The BGL Vertex corresponding to this Operator. */
     Vertex vertex;
     Workspace* workspace;

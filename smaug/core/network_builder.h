@@ -7,6 +7,7 @@
 #include "smaug/core/network.h"
 #include "smaug/operators/common.h"
 #include "smaug/core/network_config.h"
+#include "smaug/core/backend_config.h"
 
 namespace smaug {
 
@@ -44,6 +45,7 @@ Network* buildNetwork(const std::string& modelTopoFile,
 Network* buildNetwork(const std::string& modelTopoFile,
                       const std::string& modelParamsFile,
                       NetworkConfigurator * networkConfig,
+                      BackEndConfigurator * backEndConfig,
                       SamplingInfo& sampling,
                       Workspace* workspace);                      
 }  // namespace smaug

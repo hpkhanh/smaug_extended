@@ -3,8 +3,8 @@
  * \brief Aladdin kernels to load/store FP16 data to/from host memory.
  */
 
-#ifndef _OPERATORS_SMV_KERNELS_LOAD_STORE_FP16_DATA_H_
-#define _OPERATORS_SMV_KERNELS_LOAD_STORE_FP16_DATA_H_
+#ifndef KERNELS_LOAD_STORE_FP16_DATA
+#define KERNELS_LOAD_STORE_FP16_DATA
 
 #include "smaug/utility/fp16_utils.h"
 #include "smaug/operators/common.h"
@@ -65,4 +65,4 @@ void host_store_fp16(float* local_data,
 }  // extern "C"
 #endif
 
-#endif
+#endif /* KERNELS_LOAD_STORE_FP16_DATA */

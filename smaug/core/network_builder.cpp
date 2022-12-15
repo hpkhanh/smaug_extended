@@ -316,6 +316,7 @@ static void createAndAddOperator(const NodeProto& node,
 template <typename Backend>
 static void createAndAddOperator(const NodeProto& node,
                                  const LayerConfig * nodeConfig,
+                                 BackEndConfigurator * backEndConfig,
                                  const TensorDataArray& tensorDataArray,
                                  HostMemoryAccessPolicy memPolicy,
                                  Network* network,
@@ -495,8 +496,13 @@ static void createAndAddOperator(const NodeProto& node,
     Operator* op = network->getOperator(name);
     int max_cores = (nodeConfig->backend == Cpu) ? numThreads : numAcceleratorsAvailable;
     int num_cores = (nodeConfig->numCores > max_cores) ? max_cores : nodeConfig->numCores;
+    BackEndConfig * be_conf = backEndConfig->getBackEndConfig(nodeConfig->backend, 0);
+
     op->setBackEnd(nodeConfig->backend);
     op->setNumCores(num_cores);
+    op->setMemSize(be_conf->memSize);
+    op->setNumPEs(be_conf->numPEs);
+    op->setNumMaccsPerPE(be_conf->numMaccsPerPE);
 
     // Set the sampling info for the operator if it supports sampling.
     if (op->isSamplingSupported())
@@ -595,6 +601,7 @@ template <typename Backend>
 static Network* createNetworkFromProto(const GraphProto& graphProto,
                                        const TensorDataArray& tensorDataArray,
                                        NetworkConfigurator * networkConfig,
+                                       BackEndConfigurator * backEndConfig,
                                        SamplingInfo& sampling,
                                        Workspace* workspace) {
     Network* network = new Network(graphProto.name());
@@ -611,6 +618,7 @@ static Network* createNetworkFromProto(const GraphProto& graphProto,
         }        
         createAndAddOperator<Backend>(node,
                                       layer_conf,
+                                      backEndConfig,
                                       tensorDataArray,
                                       graphProto.mem_policy(),
                                       network,
@@ -705,6 +713,7 @@ Network* smaug::buildNetwork(const std::string& modelTopo,
 Network* smaug::buildNetwork(const std::string& modelTopo,
                       const std::string& modelParams,
                       NetworkConfigurator * networkConfig,
+                      BackEndConfigurator * backEndConfig,
                       SamplingInfo& sampling,
                       Workspace* workspace) {
     // Parse the network topology from the protobuf text file.
@@ -736,10 +745,10 @@ Network* smaug::buildNetwork(const std::string& modelTopo,
     Network* network = nullptr;
     if (graph.backend() == ReferenceBackend::Name) {
         network = createNetworkFromProto<ReferenceBackend>(
-                graph, tensorDataArray, networkConfig, sampling, workspace);
+                graph, tensorDataArray, networkConfig, backEndConfig, sampling, workspace);
     } else if (graph.backend() == SmvBackend::Name) {
         network = createNetworkFromProto<SmvBackend>(
-                graph, tensorDataArray, networkConfig, sampling, workspace);
+                graph, tensorDataArray, networkConfig, backEndConfig, sampling, workspace);
     } else {
         assert(false && "Unknown backend!");
     }

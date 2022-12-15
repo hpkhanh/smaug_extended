@@ -37,6 +37,20 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
     auto inputIdx = inputs.startIndex();
     auto weightIdx = weights.startIndex();
     auto outputIdx = outputs.startIndex();
+    float * a;
+    float * b;
+    float * results;
+
+    if (backEnd == Cpu) {
+        a = (float*)smaug::malloc_aligned(memSize * 2);
+        b = (float*)smaug::malloc_aligned(memSize * 2);
+        results = (float*)smaug::malloc_aligned(memSize * 2);
+    }
+    dout(1) << "Input Tiles: " << inputNumTiles
+                        << ", Act Tiles: " << inputActTiles
+                        << ", Weight Act Tiles: " << weightActTiles
+                        << ", Weight Neu Tiles: " << weightNeuronTiles << "\n";
+
     for (int i = 0; i < numCores; i++) {
         setArrayMemTypeIfSimulating(
                 smv::kInnerProductHw + i, "host_a", getInputsMemType());
@@ -65,6 +79,7 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
             mapArrayToAccel(smv::kInnerProductHw + currAccelIdx, "host_results",
                             outputTile->data<float16>(),
                             outputShape.storageSize() * sizeof(float16));
+
             int iC = 0, wC = 0;
             // This keeps track of the activation offset of the inputs.
             int actOffset = 0;
@@ -90,6 +105,7 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
                 mapArrayToAccel(smv::kInnerProductHw + currAccelIdx, "host_b",
                                 weightsTile->data<float16>(),
                                 weightsShape.storageSize() * sizeof(float16));
+
                 int inputDims[2] = { inputShape[0], inputShape[1] };
                 int weightsDims[2] = { weightsShape[0], weightsShape[1] };
                 int outputDims[2] = { outputShape[0], outputShape[1] };
@@ -113,7 +129,7 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
                 bool sendOutputs = (N == inputNumTiles - 1) &&
                                    (W == weightNeuronTiles - 1) &&
                                    (wC == weightActTiles - 1);
-
+                dout(1) << "Start Inner Product Kernel!\n";
                 if (backEnd == Smv){
                     std::unique_ptr<volatile int> finishFlag = invokeKernelNoBlock(
                             currAccelIdx, smv::kInnerProductHw + currAccelIdx,
@@ -128,15 +144,33 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
                             actInfo.params, &sampling);
                     accelPool.addFinishFlag(currAccelIdx, std::move(finishFlag));
                 } else if (backEnd == Cpu){
+                    // cpu_inner_product_ab_times_cb_16(
+                    //         inputTile->data<float16>(),
+                    //         weightsTile->data<float16>(),
+                    //         outputTile->data<float16>(), 
+                    //         inputShape[0], weightsShape[1], weightsShape[0],
+                    //         inputShape.getPadding(1), weightsShape.getPadding(1),
+                    //         outputShape.getPadding(1), actInfo.function,
+                    //         actInfo.params);
+
+                    // cpu_matrix_multiply_transpose_nc_vec_fxp(
+                    //         inputTile->data<float16>(),
+                    //         weightsTile->data<float16>(),
+                    //         outputTile->data<float16>(), inputDims, weightsDims, outputDims,
+                    //         inputShape.getPadding(1), weightsShape.getPadding(1),
+                    //         outputShape.getPadding(1), actStart, finishedNeurons,
+                    //         accumulate, readInputs, sendOutputs, actInfo.function,
+                    //         actInfo.params, &sampling);
                     smv_matrix_multiply_transpose_nc_vec_fxp(
                             inputTile->data<float16>(),
                             weightsTile->data<float16>(),
-                            outputTile->data<float16>(), smv::spad0, smv::spad1,
-                            smv::spad2, inputDims, weightsDims, outputDims,
+                            outputTile->data<float16>(), a, b,
+                            results, inputDims, weightsDims, outputDims,
                             inputShape.getPadding(1), weightsShape.getPadding(1),
                             outputShape.getPadding(1), actStart, finishedNeurons,
                             accumulate, readInputs, sendOutputs, actInfo.function,
                             actInfo.params, &sampling);
+
                     accelPool.addFinishFlag(currAccelIdx, std::move(nullptr));
                 } else {
                     accelPool.addFinishFlag(currAccelIdx, std::move(nullptr));
@@ -160,6 +194,12 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
     }
     // Before we leave, make sure all the accelerators have finished.
     accelPool.joinAll();
+
+    if (backEnd == Cpu){
+        free(a);
+        free(b);
+        free(results);
+    }
 }
 
 void SmvInnerProductOp::tile() {
@@ -190,7 +230,7 @@ void SmvInnerProductOp::run() {
     }
 
     runNWA(tiledTensors[0], tiledTensors[1], tiledTensors[2]);
-    dout(1) << "Running on backend: " << backEnd << "\n"; 
+    dout(1) << "Running on backend: " << backEnd << "\n";
 
     {
         auto stats = gem5::ScopedStats(

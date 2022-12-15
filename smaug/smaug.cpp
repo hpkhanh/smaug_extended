@@ -8,6 +8,7 @@
 #include "core/scheduler.h"
 #include "core/network_builder.h"
 #include "core/network_config.h"
+#include "core/backend_config.h"
 #include "operators/common.h"
 #include "utility/debug_stream.h"
 #include "utility/utils.h"
@@ -149,7 +150,7 @@ int main(int argc, char* argv[]) {
                      "by 1.\n";
     }
 
-    if (numThreads != -1) {
+    if (numThreads > 1) {
         std::cout << "Using a thread pool, size: " << numThreads << ".\n";
         threadPool = new ThreadPool(numThreads);
     }
@@ -158,11 +159,14 @@ int main(int argc, char* argv[]) {
     network_config->parseConfigFile(network_config_file);
     network_config->printConfigs();
 
+    BackEndConfigurator * backend_config = new BackEndConfigurator(numThreads, numAcceleratorsAvailable);
+    std::cout << "BackEnd Config Success!\n";
+
     Workspace* workspace = new Workspace();
     // Network* network =
     //         buildNetwork(modelTopo, modelParams, sampling, workspace);
     Network* network =
-            buildNetwork(modelTopo, modelParams, network_config, sampling, workspace);
+            buildNetwork(modelTopo, modelParams, network_config, backend_config, sampling, workspace);
     ReferenceBackend::initGlobals();
     SmvBackend::initGlobals();
 
@@ -201,6 +205,7 @@ int main(int argc, char* argv[]) {
 
     delete network;
     delete workspace;
+
     ReferenceBackend::freeGlobals();
     SmvBackend::freeGlobals();
 

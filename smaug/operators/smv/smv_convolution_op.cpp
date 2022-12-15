@@ -34,6 +34,17 @@ void SmvConvolutionOp::runNHWC(TiledTensor& inputs,
     int bottomPad = inputPadding[1];
     int leftPad = inputPadding[2];
     int rightPad = inputPadding[3];
+
+    float * a;
+    float * b;
+    float * results;
+
+    if (backEnd == Cpu) {
+        a = (float*)smaug::malloc_aligned(memSize * 2);
+        b = (float*)smaug::malloc_aligned(memSize * 2);
+        results = (float*)smaug::malloc_aligned(memSize * 2);
+    }
+
     unsigned accelId = useSystolicArrayWhenAvailable ? smv::kSystolicArrayHw
                                                      : smv::kConvolutionHw;
     SmvAcceleratorPool accelPool(numCores);
@@ -216,8 +227,8 @@ void SmvConvolutionOp::runNHWC(TiledTensor& inputs,
                                 smv_conv3d_nhwc_vec_fxp(
                                         inputTile->data<float16>(),
                                         weightsTile->data<float16>(),
-                                        outputTile->data<float16>(), smv::spad0,
-                                        smv::spad1, smv::spad2, inputDims,
+                                        outputTile->data<float16>(), a,
+                                        b, results, inputDims,
                                         weightsDims, outputDims,
                                         inputShape.getPadding(3),
                                         weightsShape.getPadding(3),
@@ -258,6 +269,12 @@ void SmvConvolutionOp::runNHWC(TiledTensor& inputs,
     }
     // Before we leave, make sure all the accelerators have finished.
     accelPool.joinAll();
+
+    if (backEnd == Cpu){
+        free(a);
+        free(b);
+        free(results);
+    }
 }
 
 std::unique_ptr<volatile int> SmvConvolutionOp::invokeSystolicArrayKernel(

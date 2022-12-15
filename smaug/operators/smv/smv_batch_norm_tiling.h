@@ -46,7 +46,8 @@ class TilingOptimizer : TilingOptimizerBase {
      * @param outputs Outputs tensor of the batch norm operator.
      * @returns The TilingConfig that describes the best tiling shapes.
      */
-    static TilingConfig computeBasicTileShapes(Tensor* inputs,
+    static TilingConfig computeBasicTileShapes(int memSize,
+                                               Tensor* inputs,
                                                Tensor* weights,
                                                Tensor* outputs);
 

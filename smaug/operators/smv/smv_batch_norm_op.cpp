@@ -28,6 +28,15 @@ void SmvBatchNormOp::runNA(TiledTensor& inputs,
     auto inputIdx = inputs.startIndex();
     auto weightIdx = weights.startIndex();
     auto outputIdx = outputs.startIndex();
+    
+    float * a;
+    float * b;
+    float * results;
+    if (backEnd == Cpu) {
+        a = (float*)smaug::malloc_aligned(memSize * 2);
+        b = (float*)smaug::malloc_aligned(memSize * 2);
+        results = (float*)smaug::malloc_aligned(memSize * 2);
+    }
     setArrayMemTypeIfSimulating(
             smv::kBatchNormHw, "host_inputs", getInputsMemType());
     setArrayMemTypeIfSimulating(
@@ -81,8 +90,8 @@ void SmvBatchNormOp::runNA(TiledTensor& inputs,
                 smv_batch_norm_post_fc_nc_vec_fxp(
                             inputTile->data<float16>(),
                             weightsTile->data<float16>(),
-                            outputTile->data<float16>(), smv::spad0, smv::spad1,
-                            smv::spad2, inputDims, weightsShape[1],
+                            outputTile->data<float16>(), a, b,
+                            results, inputDims, weightsShape[1],
                             inputShape.getPadding(1), actStart, sendOutputs,
                             actInfo.function, actInfo.params);
             }
@@ -101,6 +110,12 @@ void SmvBatchNormOp::runNA(TiledTensor& inputs,
             }
         }
     }
+
+    if (backEnd == Cpu){
+        free(a);
+        free(b);
+        free(results);
+    }
 }
 
 // The tile dispatcher for post-convolution batch norms. The tile iteration is
@@ -114,6 +129,15 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
                              TiledTensor& outputs) {
     // Ordinarily, we don't need to tile the weights.
     assert(weights.size() == 1);
+    float * a;
+    float * b;
+    float * results;
+
+    if (backEnd == Cpu) {
+        a = (float*)smaug::malloc_aligned(memSize * 2);
+        b = (float*)smaug::malloc_aligned(memSize * 2);
+        results = (float*)smaug::malloc_aligned(memSize * 2);
+    }
     int inputNumTiles = inputs.getShape()[0];
     int inputRowTiles = inputs.getShape()[1];
     int inputColTiles = inputs.getShape()[2];
@@ -178,8 +202,8 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
                             smv_batch_norm_post_conv_nhwc_vec_fxp(
                                     inputTile->data<float16>(),
                                     weightTile->data<float16>(),
-                                    outputTile->data<float16>(), smv::spad0,
-                                    smv::spad1, smv::spad2, inputDims,
+                                    outputTile->data<float16>(), a,
+                                    b, results, inputDims,
                                     weightShape[1], inputShape.getPadding(3),
                                     weightShape.getPadding(1), ifmapOffset,
                                     actInfo.function, actInfo.params,
@@ -199,6 +223,12 @@ void SmvBatchNormOp::runNHWC(TiledTensor& inputs,
         }
     }
     accelPool.joinAll();
+
+    if (backEnd == Cpu){
+        free(a);
+        free(b);
+        free(results);
+    }
 }
 
 void SmvBatchNormOp::tile() {

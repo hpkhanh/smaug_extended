@@ -1,4 +1,5 @@
 #include "smaug/operators/smv/kernels/load_store_fp16_data.h"
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +38,7 @@ void host_load_fp16(float* local_data,
             v8ph_t fp16_data = _local_data_hp[page_offset_vec * 2 + v];
             v8fp_t fp32_data = _CVT_PH_PS_256(fp16_data);
             _local_data_sp[page_offset_vec + v] = fp32_data;
-        }
+         }
         num_bytes_remaining -= transfer_size;
     }
 }

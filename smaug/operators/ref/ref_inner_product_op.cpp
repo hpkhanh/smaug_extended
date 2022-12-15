@@ -3,6 +3,10 @@
 #include "smaug/operators/inner_product_op.h"
 #include "smaug/operators/ref/ref_activation_fun_op.h"
 #include "smaug/utility/debug_stream.h"
+#include <cstdio>
+
+#include "fp16.h"
+// #include "smaug/operators/smv/kernels/load_store_fp16_data.h"
 
 #ifdef __cplusplus
 extern "C" {

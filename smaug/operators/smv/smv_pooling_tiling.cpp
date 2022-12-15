@@ -52,7 +52,7 @@ std::array<TilingDims, 2> TilingOptimizer::determineBestTilingDims(
 TilingConfig TilingOptimizer::computeBasicTileShapes(SmvPoolingOp* op) {
     Tensor* inputs = op->getInput(op->Inputs);
     Tensor* outputs = op->getOutput(op->Outputs);
-    int maxTileSize = SmvBackend::SpadSize() / inputs->getDataTypeSize();
+    int maxTileSize = op->memSize / inputs->getDataTypeSize();
     std::pair<int, int> poolSize = op->getPoolingSize();
     std::pair<int, int> poolStride = op->getPoolingStride();
     std::array<TilingDims, 2> strategies =

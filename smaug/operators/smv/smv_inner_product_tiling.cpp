@@ -10,16 +10,16 @@ namespace smaug {
 namespace smv {
 namespace fc {
 
-std::array<TilingDims, 3> TilingOptimizer::determineBestTilingDims(
+std::array<TilingDims, 3> TilingOptimizer::determineBestTilingDims(Operator* op,
         Tensor* inputs, Tensor* weights, Tensor* outputs, int maxTileSize) {
     // Determine the best tiling strategy for each of inputs, weights, and
     // outputs. Don't try to figure out the actual tile sizes yet.
     TilingDims bestInputTilingDims = findBestTilingDims(
-            inputs->getShape(), maxTileSize, { 1, kNumMaccsPerPE });
+            inputs->getShape(), maxTileSize, { 1,  op->getNumMaccsPerPE()});
     TilingDims bestWeightTilingDims = findBestTilingDims(
-            weights->getShape(), maxTileSize, { kNumPEs, kNumMaccsPerPE });
+            weights->getShape(), maxTileSize, { op->getNumPEs(), op->getNumMaccsPerPE() });
     TilingDims bestOutputTilingDims = findBestTilingDims(
-            outputs->getShape(), maxTileSize, { 1, kNumPEs });
+            outputs->getShape(), maxTileSize, { 1, op->getNumPEs() });
 
     // Apply some constraints to simplify tiling logic.
     //
@@ -36,9 +36,10 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvInnerProductOp* op) {
     Tensor* inputs = op->getInput(op->Inputs);
     Tensor* weights = op->getInput(op->Weights);
     Tensor* outputs = op->getOutput(op->Outputs);
-    int maxTileSize = SmvBackend::SpadSize() / inputs->getDataTypeSize();
+    // int maxTileSize = SmvBackend::SpadSize() / inputs->getDataTypeSize();
+    int maxTileSize = op->memSize / inputs->getDataTypeSize();
     std::array<TilingDims, 3> strategies =
-            determineBestTilingDims(inputs, weights, outputs, maxTileSize);
+            determineBestTilingDims(op, inputs, weights, outputs, maxTileSize);
     TilingDims inputTilingDims = strategies[0];
     TilingDims weightTilingDims = strategies[1];
     TilingDims outputTilingDims = strategies[2];
@@ -74,8 +75,8 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvInnerProductOp* op) {
         std::vector<int> minShape = inputsShape.dims();
         enum2DTensorTilingConfigs(inputsShape,
                                   maxTileSize,
-                                  { 1, kNumMaccsPerPE },
-                                  { 1, kNumMaccsPerPE },
+                                  { 1, op->getNumMaccsPerPE() },
+                                  { 1, op->getNumMaccsPerPE() },
                                   inputConfigs);
 
     } else {
@@ -88,8 +89,8 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvInnerProductOp* op) {
     for (auto it = inputConfigs.begin(); it != inputConfigs.end(); ++it) {
         const TensorShape& inputsShape = *it;
         if (weightTilingDims == DimN) {
-            int minOfmaps = std::min(weightsShape[0], kNumPEs);
-            for (int n = minOfmaps; n <= weightsShape[0]; n += kNumPEs) {
+            int minOfmaps = std::min(weightsShape[0], op->getNumPEs());
+            for (int n = minOfmaps; n <= weightsShape[0]; n += op->getNumPEs()) {
                 TilingConfig config;
                 config.weights = TensorShape({ n, inputsShape[1] },
                                              inputsShape.getLayout(),
@@ -102,9 +103,9 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvInnerProductOp* op) {
                 }
             }
         } else if (weightTilingDims == DimNC) {
-            int minNeurons = std::min(weightsShape[0], kNumPEs);
-            int minActs = std::min(weightsShape[1], kNumMaccsPerPE);
-            for (int n = minNeurons; n <= weightsShape[0]; n += kNumPEs) {
+            int minNeurons = std::min(weightsShape[0], op->getNumPEs());
+            int minActs = std::min(weightsShape[1], op->getNumMaccsPerPE());
+            for (int n = minNeurons; n <= weightsShape[0]; n += op->getNumPEs()) {
                 TilingConfig config;
                 config.weights = weightsShape;
                 config.weights[0] = n;
@@ -122,7 +123,7 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvInnerProductOp* op) {
                     // The weights can be independently tiled activation-wise
                     // only if the inputs are not tiled on activations.
                     for (int c = minActs; c <= weightsShape[1];
-                         c += kNumMaccsPerPE) {
+                         c += op->getNumMaccsPerPE()) {
                         config.weights[1] = c;
                         if (config.weights.storageSize() <= maxTileSize) {
                             config.inputs = inputsShape;
@@ -152,10 +153,10 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvInnerProductOp* op) {
     std::vector<TilingConfig> fullConfigs;
     for (auto it = inputWeightConfigs.begin(); it != inputWeightConfigs.end();
          ++it) {
-        int minChannels = std::min(it->weights[0], kNumPEs);
+        int minChannels = std::min(it->weights[0], op->getNumPEs());
         bool weightsNeedTiling = (weightTilingDims != None);
         bool outputsNeedTiling = (outputTilingDims != None);
-        for (int c = minChannels; c <= weightsShape[0]; c += kNumPEs) {
+        for (int c = minChannels; c <= weightsShape[0]; c += op->getNumPEs()) {
             TilingConfig config = *it;
             config.outputs = outputsShape;
             config.outputs[0] = config.inputs[0];

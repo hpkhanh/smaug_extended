@@ -10,7 +10,7 @@ namespace smaug {
 namespace smv {
 namespace conv {
 
-std::array<TilingDims, 3> TilingOptimizer::determineBestTilingDims(
+std::array<TilingDims, 3> TilingOptimizer::determineBestTilingDims(Operator * op,
         Tensor* inputs, Tensor* weights, Tensor* outputs, int maxTileSize) {
     // Determine the best tiling strategy for each of inputs, weights, and
     // outputs. Don't try to figure out the actual tile sizes yet.
@@ -18,18 +18,18 @@ std::array<TilingDims, 3> TilingOptimizer::determineBestTilingDims(
             findBestTilingDims(inputs->getShape(),
                                maxTileSize,
                                { 1, weights->getShape()[1],
-                                 inputs->getShape()[2], kNumMaccsPerPE });
+                                 inputs->getShape()[2], op->getNumMaccsPerPE() });
     TilingDims bestWeightTilingDims =
             findBestTilingDims(weights->getShape(),
                                maxTileSize,
-                               { kNumPEs, weights->getShape()[1],
-                                 weights->getShape()[2], kNumMaccsPerPE });
+                               { op->getNumPEs(), weights->getShape()[1],
+                                 weights->getShape()[2], op->getNumMaccsPerPE() });
     assert(bestWeightTilingDims != TilingDims::DimNH &&
            "Weights cannot be tiled by dimensions NH!");
     TilingDims bestOutputTilingDims =
             findBestTilingDims(outputs->getShape(),
                                maxTileSize,
-                               { 1, 1, outputs->getShape()[2], kNumPEs });
+                               { 1, 1, outputs->getShape()[2], op->getNumPEs() });
 
     // Apply some constraints to simplify tiling logic.
     //
@@ -58,9 +58,9 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
     Tensor* inputs = op->getInput(op->Inputs);
     Tensor* weights = op->getInput(op->Kernels);
     Tensor* outputs = op->getOutput(op->Outputs);
-    int maxTileSize = SmvBackend::SpadSize() / inputs->getDataTypeSize();
+    int maxTileSize = op->memSize / inputs->getDataTypeSize();
     std::array<TilingDims, 3> strategies =
-            determineBestTilingDims(inputs, weights, outputs, maxTileSize);
+            determineBestTilingDims(op, inputs, weights, outputs, maxTileSize);
     TilingDims inputTilingDims = strategies[0];
     TilingDims weightTilingDims = strategies[1];
     TilingDims outputTilingDims = strategies[2];
@@ -97,11 +97,11 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
     } else if (inputTilingDims == DimNC) {
         std::vector<int> minShape = inputsShape.dims();
         minShape[0] = 1;
-        minShape[3] = kNumMaccsPerPE;
+        minShape[3] = op->getNumMaccsPerPE();
         enum4DTensorTilingConfigs(inputsShape,
                                   maxTileSize,
                                   minShape,
-                                  { 1, 1, 1, kNumMaccsPerPE },
+                                  { 1, 1, 1, op->getNumMaccsPerPE() },
                                   inputConfigs);
     } else if (inputTilingDims == DimNH) {
         std::vector<int> minShape = inputsShape.dims();
@@ -114,8 +114,8 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
                                   inputConfigs);
     } else if (inputTilingDims == DimNCH) {
         std::vector<int> minShape = { 1, weightsShape[1], inputsShape[2],
-                                      kNumMaccsPerPE };
-        std::vector<int> strides = { 1, op->getRowStride(), 1, kNumMaccsPerPE };
+                                      op->getNumMaccsPerPE() };
+        std::vector<int> strides = { 1, op->getRowStride(), 1, op->getNumMaccsPerPE() };
         enum4DTensorTilingConfigs(
                 inputsShape, maxTileSize, minShape, strides, inputConfigs);
     } else {
@@ -128,8 +128,8 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
     for (auto it = inputConfigs.begin(); it != inputConfigs.end(); ++it) {
         TensorShape& inputsShape = *it;
         if (weightTilingDims == DimN) {
-            int minOfmaps = std::min(weightsShape[0], kNumPEs);
-            for (int n = minOfmaps; n <= weightsShape[0]; n += kNumPEs) {
+            int minOfmaps = std::min(weightsShape[0], op->getNumPEs());
+            for (int n = minOfmaps; n <= weightsShape[0]; n += op->getNumPEs()) {
                 TilingConfig config;
                 config.weights = weightsShape;
                 config.weights[0] = n;
@@ -142,9 +142,9 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
                 }
             }
         } else if (weightTilingDims == DimNC) {
-            int minOfmaps = std::min(weightsShape[0], kNumPEs);
-            int minChannels = std::min(weightsShape[3], kNumMaccsPerPE);
-            for (int n = minOfmaps; n <= weightsShape[0]; n += kNumPEs) {
+            int minOfmaps = std::min(weightsShape[0], op->getNumPEs());
+            int minChannels = std::min(weightsShape[3], op->getNumMaccsPerPE());
+            for (int n = minOfmaps; n <= weightsShape[0]; n += op->getNumPEs()) {
                 TilingConfig config;
                 config.weights = weightsShape;
                 config.weights[0] = n;
@@ -162,7 +162,7 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
                     // The weights can be independently tiled channelwise only
                     // if the inputs are not channelwise tiled.
                     for (int c = minChannels; c <= weightsShape[3];
-                         c += kNumMaccsPerPE) {
+                         c += op->getNumMaccsPerPE()) {
                         config.weights[3] = c;
                         if (config.weights.storageSize() <= maxTileSize) {
                             config.inputs = inputsShape;
@@ -194,9 +194,9 @@ TilingConfig TilingOptimizer::computeBasicTileShapes(SmvConvolutionOp* op) {
     std::vector<TilingConfig> fullConfigs;
     for (auto it = inputWeightConfigs.begin(); it != inputWeightConfigs.end();
          ++it) {
-        int minChannels = std::min(it->weights[0], kNumPEs);
+        int minChannels = std::min(it->weights[0], op->getNumPEs());
         bool weightsNeedTiling = (weightTilingDims != None);
-        for (int c = minChannels; c <= weightsShape[0]; c += kNumPEs) {
+        for (int c = minChannels; c <= weightsShape[0]; c += op->getNumPEs()) {
             TilingConfig config = *it;
             config.outputs = outputsShape;
             config.outputs[0] = config.inputs[0];

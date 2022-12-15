@@ -71,7 +71,8 @@ class TilingOptimizer : public TilingOptimizerBase {
      * @returns A 3-element array of TilingDims enums (inputs, weights,
      * outputs).
      */
-    static std::array<TilingDims, 3> determineBestTilingDims(Tensor* inputs,
+    static std::array<TilingDims, 3> determineBestTilingDims(Operator * op,
+                                                             Tensor* inputs,
                                                              Tensor* weights,
                                                              Tensor* outputs,
                                                              int maxTileSize);
