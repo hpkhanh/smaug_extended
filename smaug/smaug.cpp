@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
     std::string modelTopo;
     std::string modelParams;
     std::string network_config_file;
+    std::string backend_config_file;
     int debugLevel = -1;
     std::string lastOutputFile;
     bool dumpGraph = false;
@@ -77,6 +78,9 @@ int main(int argc, char* argv[]) {
         ("network-config", 
          po::value<string>(&network_config_file)->default_value("layers.cfg"),
          "Configuration file for specifying hardware backends for different layers.")
+        ("backend-config", 
+         po::value<string>(&backend_config_file)->default_value("backend.cfg"),
+         "Configuration file for specifying hardware backends properties.")
         ;
     // clang-format on
 
@@ -160,6 +164,7 @@ int main(int argc, char* argv[]) {
     network_config->printConfigs();
 
     BackEndConfigurator * backend_config = new BackEndConfigurator(numThreads, numAcceleratorsAvailable);
+    backend_config->parseConfigFile(backend_config_file);
     std::cout << "BackEnd Config Success!\n";
 
     Workspace* workspace = new Workspace();

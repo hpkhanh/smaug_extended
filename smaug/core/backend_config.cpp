@@ -54,3 +54,12 @@ BackEndConfig * BackEndConfigurator::getBackEndConfig(smaug::BackEndName_t beTyp
     }
 }
 
+void BackEndConfigurator::parseConfigFile(std::string config_file_path){
+    boost::property_tree::ptree pt;
+    boost::property_tree::read_ini(config_file_path, pt);
+
+    int mem_size = pt.get<int>("cpu.memSize");
+    for (int i = 0; i < numCpu; i++) {
+        cpuConfs[i].memSize = mem_size;
+    }
+};
