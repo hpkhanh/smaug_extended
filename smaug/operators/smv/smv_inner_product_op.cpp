@@ -46,10 +46,6 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
         b = (float*)smaug::malloc_aligned(memSize * 2);
         results = (float*)smaug::malloc_aligned(memSize * 2);
     }
-    dout(1) << "Input Tiles: " << inputNumTiles
-                        << ", Act Tiles: " << inputActTiles
-                        << ", Weight Act Tiles: " << weightActTiles
-                        << ", Weight Neu Tiles: " << weightNeuronTiles << "\n";
 
     for (int i = 0; i < numCores; i++) {
         setArrayMemTypeIfSimulating(
@@ -129,7 +125,6 @@ void SmvInnerProductOp::runNWA(TiledTensor& inputs,
                 bool sendOutputs = (N == inputNumTiles - 1) &&
                                    (W == weightNeuronTiles - 1) &&
                                    (wC == weightActTiles - 1);
-                dout(1) << "Start Inner Product Kernel!\n";
                 if (backEnd == Smv){
                     std::unique_ptr<volatile int> finishFlag = invokeKernelNoBlock(
                             currAccelIdx, smv::kInnerProductHw + currAccelIdx,
@@ -219,7 +214,7 @@ void SmvInnerProductOp::run() {
     assert(inputsShape.getLayout() == DataLayout::NC);
     assert(weightsShape.getLayout() == DataLayout::NC);
     assert(outputsShape.getLayout() == DataLayout::NC);
-    dout(1) << "Inputs for this Op: " << *inputs << "\n";
+    dout(2) << "Inputs for this Op: " << *inputs << "\n";
     dout(2) << "Weights for this Op: " << *weights << "\n";
 
     {
@@ -230,7 +225,6 @@ void SmvInnerProductOp::run() {
     }
 
     runNWA(tiledTensors[0], tiledTensors[1], tiledTensors[2]);
-    dout(1) << "Running on backend: " << backEnd << "\n";
 
     {
         auto stats = gem5::ScopedStats(

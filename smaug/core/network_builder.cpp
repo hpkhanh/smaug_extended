@@ -504,9 +504,14 @@ static void createAndAddOperator(const NodeProto& node,
     op->setNumPEs(be_conf->numPEs);
     op->setNumMaccsPerPE(be_conf->numMaccsPerPE);
 
+    SamplingInfo sample_info = network->getSamplingInfo();
+    if (nodeConfig->backend == Cpu) {
+        sample_info.level = NoSampling;
+    }
+
     // Set the sampling info for the operator if it supports sampling.
     if (op->isSamplingSupported())
-        op->setSamplingInfo(network->getSamplingInfo());
+        op->setSamplingInfo(sample_info);
     // Set the memory access types for the operator's data.
     if (memPolicy == HostMemoryAccessPolicy::AllDma) {
         op->setInputsMemType(MemoryType::dma);
